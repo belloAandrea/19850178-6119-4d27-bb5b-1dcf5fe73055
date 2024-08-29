@@ -1,0 +1,53 @@
+name: Deploy to Vercel
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '16.x'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build project
+        run: npm run build
+
+      - name: Load environment variables
+        run: |
+          echo "Loading environment variables..."
+          if [ -f .env ]; then
+            export $(cat .env | xargs)
+          fi
+
+      - name: Deploy to Vercel
+        run: |
+          DEPLOYMENT_RESPONSE=$(curl -s -X POST https://api.vercel.com/v13/deployments \
+          -H "Authorization: Bearer ${{ env.VERCEL_API_TOKEN }}" \
+          -H "Content-Type: application/json" \
+          -d '{
+            "name": "launchpad",
+            "target": "production",
+            "gitSource": {
+              "type": "github",
+              "repoId": "${{ env.VERCEL_ORG_ID }}",
+              "branch": "main"
+            }
+          }')
+          echo "Deployment response: $DEPLOYMENT_RESPONSE"
+          DEPLOYMENT_URL=$(echo $DEPLOYMENT_RESPONSE | jq -r .url)
+          echo "Vercel Deployment URL: $DEPLOYMENT_URL"
+          echo "DEPLOYMENT_URL=$DEPLOYMENT_URL" >> $GITHUB_ENV
+
+      - name: Print Deployment URL
+        run: echo "Deployment URL: ${{ env.DEPLOYMENT_URL }}"
